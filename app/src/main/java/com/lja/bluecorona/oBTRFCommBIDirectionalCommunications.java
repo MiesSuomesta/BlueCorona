@@ -24,15 +24,19 @@ public class oBTRFCommBIDirectionalCommunications {
         mBTAdapter = pBA;
         mListOfServerConnectThreads = new ArrayList<ConnectThread>();
         mListOfServerConnectedThreads = new ArrayList<ConnectedThread>();
-        setUserSicknessLevel(cBTRFCommUserNotSet);
+        setLocalUserSicknessLevel(cBTRFCommUserNotSet);
     }
 
-    public synchronized int getUserSicknessLevel() {
+    public synchronized int getLocalUserSicknessLevel() {
+        return mActivity.getUserSicknessLevel();
+    }
+    public synchronized int setLocalUserSicknessLevel(int lvl) {
+        mActivity.setUserSicknessLevel(lvl);
         return mActivity.getUserSicknessLevel();
     }
 
-    public synchronized int setUserSicknessLevel(int tmp) {
-        mActivity.setUserSicknessLevel(tmp);
+    public synchronized int setRemoteUserSicknessLevel(String pMac, int tmp) {
+        mActivity.setRemoteUserSicknessLevel(pMac, tmp);
         return tmp;
     }
 
@@ -75,7 +79,9 @@ public class oBTRFCommBIDirectionalCommunications {
 
     public synchronized void connected(BluetoothSocket socket, BluetoothDevice device) {
 
-        ConnectedThread tmp = new ConnectedThread(socket);
+        String mac = device.getAddress();
+
+        ConnectedThread tmp = new ConnectedThread(mac, socket);
         mListOfServerConnectedThreads.add(tmp);
         tmp.start();
 
@@ -132,11 +138,13 @@ public class oBTRFCommBIDirectionalCommunications {
     }
 
     private class ConnectedThread extends Thread {
+        private String mMacAddress = null;
         private BluetoothSocket mmSocket;
         private InputStream mmInStream;
         private OutputStream mmOutStream;
 
-        public ConnectedThread(BluetoothSocket socket) {
+        public ConnectedThread(String pMac, BluetoothSocket socket) {
+            mMacAddress = pMac;
             mmSocket = socket;
             InputStream tmpIn = null;
             OutputStream tmpOut = null;
@@ -159,7 +167,7 @@ public class oBTRFCommBIDirectionalCommunications {
             try {
                 // Read from the InputStream
                 bytes = mmInStream.read(buffer);
-                mActivity.setUserSicknessLevel(buffer[0]);
+                mActivity.setRemoteUserSicknessLevel(mMacAddress, buffer[0]);
                 buffer[0] = (byte)mActivity.getUserSicknessLevel();
             } catch (IOException e) {
 

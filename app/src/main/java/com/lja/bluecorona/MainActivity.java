@@ -28,6 +28,15 @@ import androidx.core.app.ActivityCompat.OnRequestPermissionsResultCallback;
 import com.google.android.material.snackbar.Snackbar.*;
 
 import static android.content.pm.PackageManager.*;
+import android.os.Bundle;
+import android.app.Activity;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.app.TaskStackBuilder;
+import android.content.Context;
+import android.content.Intent;
+import android.view.View;
+import android.widget.Button;
 
 public class MainActivity extends AppCompatActivity
         implements ActivityCompat.OnRequestPermissionsResultCallback {
@@ -36,12 +45,13 @@ public class MainActivity extends AppCompatActivity
     private BluetoothAdapter                     mBA = null;
     private BluetoothManager                     mBTM = null;
     private oBTRFCommBIDirectionalCommunications mBTRFComm = null;
-    private HashMap<String, Integer>             mBTRFCommappPermissions = new HashMap<>();
-    private static final int REQUEST_GPS_FINE = 1;
-    private static final int REQUEST_GPS_COARSE = 2;
-    private static final int REQUEST_BT = 4;
-    private static final int REQUEST_BT_ADM = 8;
-    private boolean mPermissionsOK = false;
+    private HashMap<String, Integer>             mBTRFCommappPermissions = new HashMap<>(); // permission name, ID nro
+    private HashMap<String, Integer>             mBTRFCommFoundStatuses = new HashMap<>(); // Mac, sickness status
+    private static final int                     REQUEST_GPS_FINE = 1;
+    private static final int                     REQUEST_GPS_COARSE = 2;
+    private static final int                     REQUEST_BT = 4;
+    private static final int                     REQUEST_BT_ADM = 8;
+    private boolean mPermissionsOK =             false;
 
     @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR2)
     @Override
@@ -160,4 +170,15 @@ public class MainActivity extends AppCompatActivity
         mUserSicknessLevel = tmp;
         return tmp;
     }
+
+    public synchronized int getRemoteUserSicknessLevel(String pMacAddress) {
+        int rv = mBTRFCommFoundStatuses.get(pMacAddress);
+        return rv;
+    }
+
+    public synchronized int setRemoteUserSicknessLevel(String pMacAddress, int tmp) {
+        mBTRFCommFoundStatuses.put(pMacAddress, tmp);
+        return tmp;
+    }
+
 }
