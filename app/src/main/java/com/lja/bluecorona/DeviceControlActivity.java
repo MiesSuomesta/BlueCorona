@@ -1,5 +1,6 @@
 package com.lja.bluecorona;
 
+import android.app.ActionBar;
 import android.app.Activity;
 
 /*
@@ -52,17 +53,20 @@ public class DeviceControlActivity extends Activity {
 
     public static final String EXTRAS_DEVICE_NAME = "DEVICE_NAME";
     public static final String EXTRAS_DEVICE_ADDRESS = "DEVICE_ADDRESS";
+    public static final String EXTRAS_REMOTE_USER_SICKNESS = "REMOTE_USER_SICKNESS";
 
     private TextView mConnectionState;
     private TextView mDataField;
     private String mDeviceName;
     private String mDeviceAddress;
+    private int     mAreaSicknessState = 0;
     private ExpandableListView mGattServicesList;
     private BluetoothLeService mBluetoothLeService;
     private ArrayList<ArrayList<BluetoothGattCharacteristic>> mGattCharacteristics =
             new ArrayList<ArrayList<BluetoothGattCharacteristic>>();
     private boolean mConnected = false;
     private BluetoothGattCharacteristic mNotifyCharacteristic;
+    private ActionBar mActionBar = null;
 
     private final String LIST_NAME = "NAME";
     private final String LIST_UUID = "UUID";
@@ -103,6 +107,7 @@ public class DeviceControlActivity extends Activity {
                 invalidateOptionsMenu();
             } else if (BluetoothLeService.ACTION_GATT_DISCONNECTED.equals(action)) {
                 mConnected = false;
+                mAreaSicknessState = cBTRFCommConstants.cBTRFCommUserNotSet;
                 updateConnectionState(R.string.disconnected);
                 invalidateOptionsMenu();
                 clearUI();
@@ -110,7 +115,13 @@ public class DeviceControlActivity extends Activity {
                 // Show all the supported services and characteristics on the user interface.
                 displayGattServices(mBluetoothLeService.getSupportedGattServices());
             } else if (BluetoothLeService.ACTION_DATA_AVAILABLE.equals(action)) {
-                displayData(intent.getStringExtra(BluetoothLeService.EXTRA_DATA));
+                int iState = intent.getIntExtra(BluetoothLeService.EXTRA_DATA,
+                                                cBTRFCommConstants.cBTRFCommUserNotSet);
+
+                if (mAreaSicknessState < iState)
+                    mAreaSicknessState = iState;
+
+                displayData("Sicness state: ");
             }
         }
     };
@@ -159,9 +170,12 @@ public class DeviceControlActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.gatt_services_characteristics);
 
+
         final Intent intent = getIntent();
         mDeviceName = intent.getStringExtra(EXTRAS_DEVICE_NAME);
         mDeviceAddress = intent.getStringExtra(EXTRAS_DEVICE_ADDRESS);
+        int sicknesslvl = intent.getIntExtra(EXTRAS_REMOTE_USER_SICKNESS,
+                                cBTRFCommConstants.cBTRFCommUserNotSet);
 
         // Sets up UI references.
         ((TextView) findViewById(R.id.device_address)).setText(mDeviceAddress);
@@ -170,8 +184,12 @@ public class DeviceControlActivity extends Activity {
         mConnectionState = (TextView) findViewById(R.id.connection_state);
         mDataField = (TextView) findViewById(R.id.data_value);
 
-        getActionBar().setTitle(mDeviceName);
+        displayData(cBTRFCommConstants.cBTRFSicknessStateStrings[sicknesslvl]);
+
+/*        getActionBar().setTitle(mDeviceName);
         getActionBar().setDisplayHomeAsUpEnabled(true);
+
+ */
         Intent gattServiceIntent = new Intent(this, BluetoothLeService.class);
         bindService(gattServiceIntent, mServiceConnection, BIND_AUTO_CREATE);
     }
@@ -308,4 +326,5 @@ public class DeviceControlActivity extends Activity {
         intentFilter.addAction(BluetoothLeService.ACTION_DATA_AVAILABLE);
         return intentFilter;
     }
+
 }

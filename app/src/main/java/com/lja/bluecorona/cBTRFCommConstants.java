@@ -7,9 +7,11 @@ import java.util.UUID;
 public class cBTRFCommConstants {
 
     public static final int cBTRFCommUserNotSet  = 0;
-    public static final int cBTRFCommUserSick    = 1;
-    public static final int cBTRFCommUserOK      = 2;
-    public static final int cBTRFCommUserNotSure = 3;
+    public static final int cBTRFCommUserOK      = 1;
+    public static final int cBTRFCommUserNotSure = 2;
+    public static final int cBTRFCommUserSick    = 3;
+
+    public static String[] cBTRFSicknessStateStrings = { "No data", "Situation OK", "Someone maybe sick, beware", "Someone is sick" };
 
     private static HashMap<String, String> attributes = new HashMap();
     public static String HEART_RATE_MEASUREMENT = "00002a37-0000-1000-8000-00805f9b34fb";
