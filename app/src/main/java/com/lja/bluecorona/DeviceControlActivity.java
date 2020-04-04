@@ -42,6 +42,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
+import static com.lja.bluecorona.BluetoothLeService.EXTRA_DATA;
+
 /**
  * For a given BLE device, this Activity provides the user interface to connect, display data,
  * and display GATT services and characteristics supported by the device.  The Activity
@@ -53,7 +55,7 @@ public class DeviceControlActivity extends Activity {
 
     public static final String EXTRAS_DEVICE_NAME = "DEVICE_NAME";
     public static final String EXTRAS_DEVICE_ADDRESS = "DEVICE_ADDRESS";
-    public static final String EXTRAS_REMOTE_USER_SICKNESS = "REMOTE_USER_SICKNESS";
+    public static final String EXTRAS_DEVICE_DATA = "DEVICE_DATA";
 
     private TextView mConnectionState;
     private TextView mDataField;
@@ -121,7 +123,7 @@ public class DeviceControlActivity extends Activity {
                 if (mAreaSicknessState < iState)
                     mAreaSicknessState = iState;
 
-                displayData("Sicness state: ");
+                displayData(cBTRFCommConstants.cBTRFSicknessStateStrings[mAreaSicknessState]);
             }
         }
     };
@@ -162,6 +164,7 @@ public class DeviceControlActivity extends Activity {
 
     private void clearUI() {
         mGattServicesList.setAdapter((SimpleExpandableListAdapter) null);
+        mAreaSicknessState = 0;
         mDataField.setText(R.string.no_data);
     }
 
@@ -174,9 +177,7 @@ public class DeviceControlActivity extends Activity {
         final Intent intent = getIntent();
         mDeviceName = intent.getStringExtra(EXTRAS_DEVICE_NAME);
         mDeviceAddress = intent.getStringExtra(EXTRAS_DEVICE_ADDRESS);
-        int sicknesslvl = intent.getIntExtra(EXTRAS_REMOTE_USER_SICKNESS,
-                                cBTRFCommConstants.cBTRFCommUserNotSet);
-
+        int sicknesslvl = intent.getIntExtra(BluetoothLeService.EXTRA_DATA,-100);
         // Sets up UI references.
         ((TextView) findViewById(R.id.device_address)).setText(mDeviceAddress);
         mGattServicesList = (ExpandableListView) findViewById(R.id.gatt_services_list);
@@ -184,7 +185,7 @@ public class DeviceControlActivity extends Activity {
         mConnectionState = (TextView) findViewById(R.id.connection_state);
         mDataField = (TextView) findViewById(R.id.data_value);
 
-        displayData(cBTRFCommConstants.cBTRFSicknessStateStrings[sicknesslvl]);
+        displayData(cBTRFCommConstants.getSicnesslvlStr(sicknesslvl));
 
 /*        getActionBar().setTitle(mDeviceName);
         getActionBar().setDisplayHomeAsUpEnabled(true);
