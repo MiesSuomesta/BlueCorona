@@ -26,9 +26,11 @@ import android.bluetooth.BluetoothGattDescriptor;
 import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothProfile;
+import android.bluetooth.le.BluetoothLeScanner;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Binder;
+import android.os.Handler;
 import android.os.IBinder;
 import android.util.Log;
 
@@ -48,6 +50,8 @@ public class BluetoothLeService extends Service {
     private BluetoothGatt mBluetoothGatt;
     private int mConnectionState = STATE_DISCONNECTED;
 
+    private Handler mHandler = new Handler();
+
     private static final int STATE_DISCONNECTED = 0;
     private static final int STATE_CONNECTING = 1;
     private static final int STATE_CONNECTED = 2;
@@ -63,8 +67,8 @@ public class BluetoothLeService extends Service {
     public final static String EXTRA_DATA =
             "com.lja.bluecorona.le.EXTRA_DATA";
 
-    public final static UUID UUID_HEART_RATE_MEASUREMENT =
-            UUID.fromString(cBTRFCommConstants.HEART_RATE_MEASUREMENT);
+    public final static UUID UUID_USER_CHARACTERISTIC =
+            UUID.fromString(cBTRFCommConstants.USER_CHARACTERISTIC);
 
     // Implements callback methods for GATT events that the app cares about.  For example,
     // connection change and services discovered.
@@ -108,6 +112,15 @@ public class BluetoothLeService extends Service {
         }
 
         @Override
+        public void onCharacteristicWrite(BluetoothGatt gatt,
+                                          BluetoothGattCharacteristic characteristic,
+                                          int status) {
+            if (status == BluetoothGatt.GATT_SUCCESS) {
+                broadcastUpdate(ACTION_DATA_AVAILABLE, characteristic);
+            }
+        }
+
+        @Override
         public void onCharacteristicChanged(BluetoothGatt gatt,
                                             BluetoothGattCharacteristic characteristic) {
             broadcastUpdate(ACTION_DATA_AVAILABLE, characteristic);
@@ -126,19 +139,17 @@ public class BluetoothLeService extends Service {
         // This is special handling for the Heart Rate Measurement profile.  Data parsing is
         // carried out as per profile specifications:
         // http://developer.bluetooth.org/gatt/characteristics/Pages/CharacteristicViewer.aspx?u=org.bluetooth.characteristic.heart_rate_measurement.xml
-        if (UUID_HEART_RATE_MEASUREMENT.equals(characteristic.getUuid())) {
+        if (UUID_USER_CHARACTERISTIC.equals(characteristic.getUuid())) {
             int flag = characteristic.getProperties();
             int format = -1;
             if ((flag & 0x01) != 0) {
                 format = BluetoothGattCharacteristic.FORMAT_UINT16;
-                Log.d(TAG, "Heart rate format UINT16.");
             } else {
                 format = BluetoothGattCharacteristic.FORMAT_UINT8;
-                Log.d(TAG, "Heart rate format UINT8.");
             }
             final int heartRate = characteristic.getIntValue(format, 1);
-            Log.d(TAG, String.format("Received heart rate: %d", heartRate));
-            intent.putExtra(EXTRA_DATA, String.valueOf(heartRate));
+            Log.d(TAG, String.format("Received health rate: %d", heartRate));
+            intent.putExtra(BluetoothLeService.EXTRA_DATA, ""+ heartRate);
         }
 
         sendBroadcast(intent);
@@ -286,15 +297,17 @@ public class BluetoothLeService extends Service {
             Log.w(TAG, "BluetoothAdapter not initialized");
             return;
         }
-        mBluetoothGatt.setCharacteristicNotification(characteristic, enabled);
 
         // This is specific to Heart Rate Measurement.
-        if (UUID_HEART_RATE_MEASUREMENT.equals(characteristic.getUuid())) {
+        if (UUID_USER_CHARACTERISTIC.equals(characteristic.getUuid())) {
             BluetoothGattDescriptor descriptor = characteristic.getDescriptor(
-                    UUID.fromString(cBTRFCommConstants.CLIENT_CHARACTERISTIC_CONFIG));
+                       UUID.fromString(cBTRFCommConstants.USER_CHARACTERISTIC));
             descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
             mBluetoothGatt.writeDescriptor(descriptor);
         }
+
+        mBluetoothGatt.setCharacteristicNotification(characteristic, enabled);
+
     }
 
     /**

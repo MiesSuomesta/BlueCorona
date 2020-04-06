@@ -21,12 +21,15 @@ import android.app.Activity;
 import android.app.ListActivity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothManager;
+import android.bluetooth.le.AdvertiseData;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Handler;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -37,7 +40,12 @@ import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+import static com.lja.bluecorona.cBTRFCommConstants.getBTRFCommLocalUserSicnesslvl;
 
 /**
  * Activity for scanning and displaying available Bluetooth LE devices.
@@ -46,13 +54,39 @@ public class DeviceScanActivity extends ListActivity {
     private LeDeviceListAdapter mLeDeviceListAdapter;
     private BluetoothAdapter mBluetoothAdapter;
     private boolean mScanning;
+    private boolean mQueriedDiscovery = false;
+    private boolean mDiscoverySet = false;
     private Handler mHandler;
-    public  int    mRemoteUserSickness = 0;
-    public  int    mLocalUserSickness = 0;
+    public  int    mLocalUserSickness = -200;
 
-    private static final int REQUEST_ENABLE_BT = 1;
-    // Stops scanning after 10 seconds.
-    private static final long SCAN_PERIOD = 5000;
+    private static int REQUEST_ENABLE_BT = 1;
+    private static int REQUEST_ENABLE_DISC = 2;
+    // Stops scanning after 30 seconds.
+    private static long SCAN_PERIOD = 10000;
+    private btMyAdvertiser mBTAdvert = null;
+
+    private void setupDiscovery() {
+        boolean bDiscoveringSetting = mBluetoothAdapter.isDiscovering();
+
+        if (bDiscoveringSetting)
+            return;
+
+        if (mDiscoverySet)
+            return;
+
+        if (mQueriedDiscovery)
+            return;
+
+        mBluetoothAdapter.cancelDiscovery();
+
+        Intent MDisc = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
+        MDisc.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 60);
+        startActivityForResult(MDisc, REQUEST_ENABLE_DISC);
+        mQueriedDiscovery = true;
+        mDiscoverySet = false;
+    }
+
+
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -79,7 +113,13 @@ public class DeviceScanActivity extends ListActivity {
             finish();
             return;
         }
+
+        mBTAdvert = new btMyAdvertiser();
+
+        mBTAdvert.btMyAdvertenadisa(true, false);
+
     }
+
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -122,6 +162,8 @@ public class DeviceScanActivity extends ListActivity {
             startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
         }
 
+        setupDiscovery();
+
         // Initializes list view adapter.
         mLeDeviceListAdapter = new LeDeviceListAdapter();
         setListAdapter(mLeDeviceListAdapter);
@@ -130,11 +172,20 @@ public class DeviceScanActivity extends ListActivity {
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        // User chose not to enable Bluetooth.
-        if (requestCode == REQUEST_ENABLE_BT && resultCode == Activity.RESULT_CANCELED) {
+
+        if (resultCode == Activity.RESULT_CANCELED) {
+            mBluetoothAdapter.cancelDiscovery();
             finish();
             return;
         }
+
+        if (requestCode == REQUEST_ENABLE_DISC) {
+            mQueriedDiscovery = false;
+            mDiscoverySet = true;
+            mBluetoothAdapter.cancelDiscovery();
+            mBluetoothAdapter.startDiscovery();
+        }
+
         super.onActivityResult(requestCode, resultCode, data);
     }
 
@@ -152,10 +203,12 @@ public class DeviceScanActivity extends ListActivity {
         final Intent intent = new Intent(this, DeviceControlActivity.class);
         intent.putExtra(DeviceControlActivity.EXTRAS_DEVICE_NAME, device.getAndroidBTDevice().getName());
         intent.putExtra(DeviceControlActivity.EXTRAS_DEVICE_ADDRESS, device.getAndroidBTDevice().getAddress());
-        intent.putExtra(BluetoothLeService.EXTRA_DATA, device.getSicnesslvl());
+        // Localuser sickness level: to do
+        intent.putExtra(DeviceControlActivity.EXTRAS_DEVICE_DATA, "" + this.mLocalUserSickness);
         if (mScanning) {
             mBluetoothAdapter.stopLeScan(mLeScanCallback);
             mScanning = false;
+//            setupDiscovery();
         }
         startActivity(intent);
     }
@@ -168,16 +221,23 @@ public class DeviceScanActivity extends ListActivity {
                 public void run() {
                     mScanning = false;
                     mBluetoothAdapter.stopLeScan(mLeScanCallback);
+                    //setupDiscovery();
                     invalidateOptionsMenu();
                 }
             }, SCAN_PERIOD);
 
             mScanning = true;
+            if (mBTAdvert != null)
+                mBTAdvert.btMyAdvertenadisa(false,true);
             mBluetoothAdapter.startLeScan(mLeScanCallback);
         } else {
             mScanning = false;
             mBluetoothAdapter.stopLeScan(mLeScanCallback);
+            if (mBTAdvert != null)
+                mBTAdvert.btMyAdvertenadisa(true,false);
+            //setupDiscovery();
         }
+
         invalidateOptionsMenu();
     }
 
@@ -194,18 +254,24 @@ public class DeviceScanActivity extends ListActivity {
 
         public void addDevice(BTdevice device) {
 
-            if(!mLeDevices.contains(device)) {
-                boolean ok = true;
-/*
-                String dAddr = device.getAndroidBTDevice().getAddress();
-                String sLenovo = "84:b8:b8:30:75:5a";
-                String sKanny = "8c:83:e1:49:8c:23";
-                ok =  (dAddr.contains(sLenovo));
-                ok |= (dAddr.contains(sKanny));
-*/
-                if (ok)
-                    mLeDevices.add(device);
+            for (BTdevice ldev : mLeDevices) {
+                boolean exists_already = ldev.compare(device);
+
+                if (exists_already) {
+                    // Update RSSI
+                    ldev.iRSSI = device.iRSSI;
+                    return;
+                }
             }
+
+/*
+            String dAddr = device.getAndroidBTDevice().getAddress();
+            String sLenovo = "84:b8:b8:30:75:5a";
+            String sKanny = "8c:83:e1:49:8c:23";
+            ok =  (dAddr.contains(sLenovo));
+            ok |= (dAddr.contains(sKanny));
+*/
+            mLeDevices.add(device);
         }
 
         public BTdevice getDevice(int position) {
@@ -250,36 +316,39 @@ public class DeviceScanActivity extends ListActivity {
             final String deviceName = device.getAndroidBTDevice().getName();
             String deviceAddress = device.getAndroidBTDevice().getAddress();
             String dname = deviceName;
-            if (
-                      deviceName == null ||
-                    ((deviceName != null) && deviceName.length() < 1)
-               ) {
-                    dname = "Unknown device";
-                } else {
-                    sl = device.getSicnesslvl();
-                }
+
+            boolean bNameOK = (deviceName != null     ) &&
+                              (deviceName.length() > 0);
+
+            sl = device.getSicnesslvl();
+
+            if ( !bNameOK ) {
+                dname = "Anon device " + (i+1) + " (" + deviceAddress + ")";
+            }
 
             viewHolder.deviceName.setText(dname);
 
-            viewHolder.deviceAddress.setText( deviceAddress +
-                    " [" + cBTRFCommConstants.getSicnesslvlStr(sl) +
-                    "  RSSI: " + device.iRSSI + "]");
+            String sRSSI = cBTRFCommConstants.getSignalStrenghtStr(device.iRSSI);
+            viewHolder.deviceAddress.setText(cBTRFCommConstants.getSicnesslvlStr(sl) +
+                    ", distance assertion: "+ sRSSI + " ("+ device.iRSSI + " dBm)" );
 
             return view;
         }
     }
+
+
 
     // Device scan callback.
     private BluetoothAdapter.LeScanCallback mLeScanCallback =
             new BluetoothAdapter.LeScanCallback() {
 
         @Override
-        public void onLeScan(final BluetoothDevice device, final int rssi, byte[] scanRecord) {
+        public void onLeScan(final BluetoothDevice device, final int rssi, final byte[] scanRecord) {
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
-
-                    mLeDeviceListAdapter.addDevice(new BTdevice(device,rssi));
+                    BTdevice devtmp = new BTdevice(device,rssi, scanRecord);
+                    mLeDeviceListAdapter.addDevice(devtmp);
                     mLeDeviceListAdapter.notifyDataSetChanged();
                 }
             });
