@@ -8,31 +8,31 @@ import android.bluetooth.le.BluetoothLeAdvertiser;
 import android.bluetooth.le.BluetoothLeScanner;
 import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanFilter;
+import android.bluetooth.le.ScanRecord;
 import android.bluetooth.le.ScanResult;
+import android.media.session.MediaSession;
 import android.os.ParcelUuid;
 import android.util.Log;
 
 import java.nio.charset.Charset;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public class btMyAdvertiser {
     private final static String TAG = btMyAdvertiser.class.getSimpleName();
 
-    private BluetoothLeScanner mBluetoothLeScanner = null;
     public  BluetoothLeAdvertiser mBAdvert = null;
     private AdvertiseSettings mAdvertiseSettings = null;
     private AdvertiseData mAdvertiseData = null;
-    public  UUID mAdvertOfServiceUID = null;
+    public  ParcelUuid mAdvertDataUID = null;
+    public  ParcelUuid mAdvertOfServiceUID = null;
 
 
     /* Callback to handle things */
     private AdvertiseCallback mBLEAdvertiseCallback = null;
-    public  ScanCallback      mBLEScanCallback      = null;
-    ;
-
-    private ScanCallback mBLEAdScanCallback = null;
 
     private byte[] buildTmpPacket() {
         int value;
@@ -47,38 +47,6 @@ public class btMyAdvertiser {
 
 
     private boolean btMyAdvertiser_start() {
-
-        if (mBLEScanCallback == null) {
-            mBLEScanCallback = new ScanCallback() {
-                @Override
-                public void onScanResult(int callbackType, ScanResult result) {
-                    super.onScanResult(callbackType, result);
-
-                    if (
-                            (result == null) ||
-                            ((result != null) && (result.getDevice() == null))
-                       )
-                    {
-                        return;
-                    }
-
-                    Log.e("BLE", "Discovery onScanResult: " + result);
-                }
-
-                ;
-
-                @Override
-                public void onBatchScanResults(List<ScanResult> results) {
-                    super.onBatchScanResults(results);
-                }
-
-                @Override
-                public void onScanFailed(int errorCode) {
-                    Log.i("BLE", "Discovery onScanFailed: " + errorCode);
-                    super.onScanFailed(errorCode);
-                }
-            };
-        }
 
         if (mBLEAdvertiseCallback == null) {
             mBLEAdvertiseCallback = new AdvertiseCallback() {
@@ -97,35 +65,31 @@ public class btMyAdvertiser {
         if (mAdvertiseSettings == null) {
             mAdvertiseSettings = new AdvertiseSettings.Builder()
                     .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_POWER)
-                    .setConnectable(true)
+                    .setConnectable(false)
                     .setTimeout(0)
                     .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_LOW)
                     .build();
         }
 
         if (mAdvertiseData == null) {
-            ParcelUuid foo = ParcelUuid.fromString(cBTRFCommConstants.USER_CHARACTERISTIC);
+            byte[] fooData = buildTmpPacket();
 
             mAdvertiseData = new AdvertiseData.Builder()
                     .setIncludeDeviceName(true)
                     .setIncludeTxPowerLevel(true)
-                    .addServiceUuid(foo)
-                    .addServiceData(foo, buildTmpPacket())
+                    .addServiceUuid(cBTRFCommConstants.BTC_UUID_OF_DATA)
+                    .addServiceData(cBTRFCommConstants.BTC_UUID_OF_DATA, fooData)
                     .build();
         }
 
         mBAdvert.startAdvertising(mAdvertiseSettings, mAdvertiseData, mBLEAdvertiseCallback);
-        mBluetoothLeScanner.startScan(mBLEScanCallback);
         return true;
     }
 
     private boolean btMyAdvertiser_stop() {
 
-        if (mBAdvert != null)
+        if ((mBAdvert != null) && (mBLEAdvertiseCallback !=null))
             mBAdvert.stopAdvertising(mBLEAdvertiseCallback);
-
-        if (mBluetoothLeScanner != null)
-            mBluetoothLeScanner.stopScan(mBLEScanCallback);
 
         return true;
     }
@@ -136,7 +100,6 @@ public class btMyAdvertiser {
 
         mAdvertiseSettings = null;
         mAdvertiseData = null;
-        mBLEAdvertiseCallback = null;
 
         return true;
     }
@@ -149,21 +112,18 @@ public class btMyAdvertiser {
             return;
         }
 
-        mAdvertOfServiceUID = UUID.fromString(cBTRFCommConstants.USER_CHARACTERISTIC);
+        mAdvertDataUID = ParcelUuid.fromString(cBTRFCommConstants.USER_CHARACTERISTIC);
+        mAdvertOfServiceUID = ParcelUuid.fromString(cBTRFCommConstants.APP_CHARACTERISTIC);
 
         mBAdvert = BluetoothAdapter.getDefaultAdapter().getBluetoothLeAdvertiser();
-
-        mBluetoothLeScanner = BluetoothAdapter
-                .getDefaultAdapter()
-                .getBluetoothLeScanner();
 
         btMyAdvertiser_start();
 
     }
 
-    public void btMyAdvertRestart() {
-        btMyAdvertenadisa(false, false);
-        btMyAdvertenadisa(true, true);
+    public void btMyAdvert_restart() {
+        btMyAdvertenadisa(false, true);
+        btMyAdvertenadisa(true, false);
     }
 
 

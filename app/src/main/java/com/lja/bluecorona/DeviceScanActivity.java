@@ -58,12 +58,14 @@ public class DeviceScanActivity extends ListActivity {
     private boolean mDiscoverySet = false;
     private Handler mHandler;
     public  int    mLocalUserSickness = -200;
+    private LayoutInflater mInflator;
 
     private static int REQUEST_ENABLE_BT = 1;
     private static int REQUEST_ENABLE_DISC = 2;
     // Stops scanning after 30 seconds.
     private static long SCAN_PERIOD = 10000;
     private btMyAdvertiser mBTAdvert = null;
+    private btMyScanner mBTScanner = null;
 
     private void setupDiscovery() {
         boolean bDiscoveringSetting = mBluetoothAdapter.isDiscovering();
@@ -114,9 +116,14 @@ public class DeviceScanActivity extends ListActivity {
             return;
         }
 
+        mInflator = DeviceScanActivity.this.getLayoutInflater();
+
         mBTAdvert = new btMyAdvertiser();
 
         mBTAdvert.btMyAdvertenadisa(true, false);
+
+        mBTScanner = new btMyScanner();
+        mBTScanner.startScanner();
 
     }
 
@@ -162,8 +169,6 @@ public class DeviceScanActivity extends ListActivity {
             startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
         }
 
-        setupDiscovery();
-
         // Initializes list view adapter.
         mLeDeviceListAdapter = new LeDeviceListAdapter();
         setListAdapter(mLeDeviceListAdapter);
@@ -192,6 +197,7 @@ public class DeviceScanActivity extends ListActivity {
     @Override
     protected void onPause() {
         super.onPause();
+        mBluetoothAdapter.cancelDiscovery();
         scanLeDevice(false);
         mLeDeviceListAdapter.clear();
     }
@@ -205,11 +211,7 @@ public class DeviceScanActivity extends ListActivity {
         intent.putExtra(DeviceControlActivity.EXTRAS_DEVICE_ADDRESS, device.getAndroidBTDevice().getAddress());
         // Localuser sickness level: to do
         intent.putExtra(DeviceControlActivity.EXTRAS_DEVICE_DATA, "" + this.mLocalUserSickness);
-        if (mScanning) {
-            mBluetoothAdapter.stopLeScan(mLeScanCallback);
-            mScanning = false;
-//            setupDiscovery();
-        }
+        scanLeDevice(false);
         startActivity(intent);
     }
 
@@ -220,7 +222,8 @@ public class DeviceScanActivity extends ListActivity {
                 @Override
                 public void run() {
                     mScanning = false;
-                    mBluetoothAdapter.stopLeScan(mLeScanCallback);
+                    mBTScanner.stopScanner();
+                    mBTAdvert.btMyAdvertenadisa(false,true);
                     //setupDiscovery();
                     invalidateOptionsMenu();
                 }
@@ -228,73 +231,51 @@ public class DeviceScanActivity extends ListActivity {
 
             mScanning = true;
             if (mBTAdvert != null)
-                mBTAdvert.btMyAdvertenadisa(false,true);
-            mBluetoothAdapter.startLeScan(mLeScanCallback);
+                mBTAdvert.btMyAdvertenadisa(true,true);
+
+            mBTScanner.startScanner();
+
         } else {
             mScanning = false;
-            mBluetoothAdapter.stopLeScan(mLeScanCallback);
             if (mBTAdvert != null)
-                mBTAdvert.btMyAdvertenadisa(true,false);
-            //setupDiscovery();
+                mBTAdvert.btMyAdvertenadisa(false,true);
+
+            mBTScanner.stopScanner();
+            setupDiscovery();
         }
 
         invalidateOptionsMenu();
     }
 
-    // Adapter for holding devices found through scanning.
-    private class LeDeviceListAdapter extends BaseAdapter {
-        private ArrayList<BTdevice> mLeDevices;
-        private LayoutInflater mInflator;
+        // Adapter for holding devices found through scanning.
+    public class LeDeviceListAdapter extends BaseAdapter {
 
         public LeDeviceListAdapter() {
             super();
-            mLeDevices = new ArrayList<BTdevice>();
-            mInflator = DeviceScanActivity.this.getLayoutInflater();
-        }
 
-        public void addDevice(BTdevice device) {
-
-            for (BTdevice ldev : mLeDevices) {
-                boolean exists_already = ldev.compare(device);
-
-                if (exists_already) {
-                    // Update RSSI
-                    ldev.iRSSI = device.iRSSI;
-                    return;
-                }
-            }
-
-/*
-            String dAddr = device.getAndroidBTDevice().getAddress();
-            String sLenovo = "84:b8:b8:30:75:5a";
-            String sKanny = "8c:83:e1:49:8c:23";
-            ok =  (dAddr.contains(sLenovo));
-            ok |= (dAddr.contains(sKanny));
-*/
-            mLeDevices.add(device);
         }
 
         public BTdevice getDevice(int position) {
-            return mLeDevices.get(position);
+            return mBTScanner.getDevice(position);
         }
 
         public void clear() {
-            mLeDevices.clear();
+            mBTScanner.clearScanResults();
         }
 
         @Override
         public int getCount() {
-            return mLeDevices.size();
+            return mBTScanner.getCount();
         }
 
         @Override
         public Object getItem(int i) {
-            return mLeDevices.get(i);
+            return mBTScanner.getItem(i);
         }
 
         @Override
         public long getItemId(int i) {
-            return i;
+            return mBTScanner.getItemId(i);
         }
 
         @Override
@@ -311,7 +292,7 @@ public class DeviceScanActivity extends ListActivity {
                 viewHolder = (ViewHolder) view.getTag();
             }
 
-            BTdevice device = mLeDevices.get(i);
+            BTdevice device = (BTdevice) getItem(i);
             int sl = 0;
             final String deviceName = device.getAndroidBTDevice().getName();
             String deviceAddress = device.getAndroidBTDevice().getAddress();
@@ -335,25 +316,6 @@ public class DeviceScanActivity extends ListActivity {
             return view;
         }
     }
-
-
-
-    // Device scan callback.
-    private BluetoothAdapter.LeScanCallback mLeScanCallback =
-            new BluetoothAdapter.LeScanCallback() {
-
-        @Override
-        public void onLeScan(final BluetoothDevice device, final int rssi, final byte[] scanRecord) {
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    BTdevice devtmp = new BTdevice(device,rssi, scanRecord);
-                    mLeDeviceListAdapter.addDevice(devtmp);
-                    mLeDeviceListAdapter.notifyDataSetChanged();
-                }
-            });
-        }
-    };
 
     static class ViewHolder {
         TextView deviceName;

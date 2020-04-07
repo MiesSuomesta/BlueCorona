@@ -11,6 +11,10 @@ public class btScanRecordParser {
     public List<btScanRecord> parseScanRecord(byte[] scanRecord) {
         List<btScanRecord> records = new ArrayList<btScanRecord>();
 
+        if (scanRecord == null)
+            return records;
+
+
         int index = 0;
         while (index < scanRecord.length) {
             int length = scanRecord[index++];

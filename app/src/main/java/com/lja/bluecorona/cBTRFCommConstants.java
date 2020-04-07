@@ -1,5 +1,7 @@
 package com.lja.bluecorona;
 
+import android.os.ParcelUuid;
+
 import java.util.HashMap;
 
 public class cBTRFCommConstants {
@@ -95,11 +97,19 @@ public class cBTRFCommConstants {
     };
 
     private static HashMap<String, String> attributes = new HashMap();
+    public static String APP_CHARACTERISTIC = "4a32d535-e198-4128-9656-a78c54d25072";
     public static String USER_CHARACTERISTIC = "a18e5a7b-a086-4fc2-a789-92308302204c";
+
+    public static ParcelUuid BTC_UUID_OF_SERVICE =
+            ParcelUuid.fromString(cBTRFCommConstants.APP_CHARACTERISTIC);
+    public static ParcelUuid BTC_UUID_OF_DATA    =
+            ParcelUuid.fromString(cBTRFCommConstants.USER_CHARACTERISTIC);
+
 
     static {
         // Sample Services.
-        attributes.put(USER_CHARACTERISTIC, "User Healt Service");
+        attributes.put(APP_CHARACTERISTIC,  "User Healt Service");
+        attributes.put(USER_CHARACTERISTIC, "User Healt value");
         // Sample Characteristics.
     }
 
